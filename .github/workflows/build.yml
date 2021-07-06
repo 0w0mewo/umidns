@@ -23,4 +23,3 @@ jobs:
         goos: ${{ matrix.goos }}
         goarch: ${{ matrix.goarch }}
         goversion: 1.15
-        binary_name: "umidns"
