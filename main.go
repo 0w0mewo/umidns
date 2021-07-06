@@ -56,7 +56,7 @@ func main() {
 
 	// register dns server handler
 	server.Handler = dns.HandlerFunc(func(rw dns.ResponseWriter, m *dns.Msg) {
-		var upstreamResp *dns.Msg
+		var upstreamResp *dns.Msg = &dns.Msg{}
 		var err error
 
 		switch m.Opcode {
@@ -71,7 +71,6 @@ func main() {
 				// set NXDOMAIN status to dns client if empty answer
 				if len(upstreamResp.Answer) <= 0 {
 					upstreamResp.SetRcode(m, dns.RcodeNameError)
-					log.Println("domain: " + q.Name + " not found")
 				}
 
 				if err != nil {
