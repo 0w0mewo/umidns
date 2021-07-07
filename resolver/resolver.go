@@ -1,7 +1,7 @@
 package resolver
 
 import (
-	"log"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/miekg/dns"
 )
@@ -16,7 +16,7 @@ func Resolve(primary Resolver, secondary Resolver, fqdn string, dnsType uint16) 
 
 	resp, err = primary.Resolve(fqdn, dnsType)
 	if err != nil {
-		log.Println(err, ", trying failback server")
+		log.Warnln(err, ", trying failback server")
 
 		resp, err = secondary.Resolve(fqdn, dnsType)
 		if err != nil {

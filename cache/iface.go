@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -14,4 +15,8 @@ type Cache interface {
 	Delete(key string)                                        // delete key-value pair from cache
 	Get(key string) interface{}                               // fetch value from given key in the cache, return the corrsponding value if not expired, nil otherwise
 	cleanExpired()
+}
+
+func (i *item) String() string {
+	return fmt.Sprintf("%s, expired at %v", i.Value, time.Unix(i.Lifetime, 0))
 }

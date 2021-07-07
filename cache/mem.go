@@ -4,6 +4,8 @@ import (
 	"runtime"
 	"sync"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type MemStore struct {
@@ -17,6 +19,7 @@ func NewMemCache() *MemStore {
 	runtime.SetFinalizer(cache, func(ms *MemStore) {
 		ms.stop <- true
 	})
+
 	return cache
 }
 
@@ -25,6 +28,8 @@ func (c *MemStore) Add(key string, value interface{}, timeout time.Duration) {
 
 	c.mapper.Store(key, &item{Value: value,
 		Lifetime: expireTime})
+
+	log.Debugf("cache add: %s, expired at %v", key, time.Unix(expireTime, 0))
 }
 
 func (c *MemStore) Delete(key string) {
@@ -33,6 +38,7 @@ func (c *MemStore) Delete(key string) {
 
 func (c *MemStore) Get(key string) interface{} {
 	if v, exist := c.mapper.Load(key); exist {
+		log.Debugf("cache hit: %s", key)
 		return v.(*item).Value
 	}
 
@@ -46,7 +52,7 @@ func (c *MemStore) cleanExpired() {
 		expireTime := value.(*item).Lifetime
 
 		if expireTime <= unixNow() {
-			//log.Println("cache expired: ", k)
+			log.Debugf("cache expired: %s", k)
 			c.Delete(k)
 		}
 
