@@ -9,7 +9,9 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
+	"time"
 
+	"github.com/0w0mewo/umidns/cache"
 	"github.com/0w0mewo/umidns/resolver"
 	"github.com/miekg/dns"
 )
@@ -19,6 +21,7 @@ type Config struct {
 	Port        int
 	UpStreamDoH string
 	UpStreamTcp string
+	CacheTTL    int
 }
 
 var cfg Config
@@ -54,6 +57,8 @@ func main() {
 
 	backupclient := resolver.NewTCPClient(cfg.UpStreamTcp, true)
 
+	var recCache cache.Cache = cache.NewMemCache()
+
 	// register dns server handler
 	server.Handler = dns.HandlerFunc(func(rw dns.ResponseWriter, m *dns.Msg) {
 		var upstreamResp *dns.Msg = &dns.Msg{}
@@ -63,7 +68,13 @@ func main() {
 		// query
 		case dns.OpcodeQuery:
 			for _, q := range m.Question {
-				upstreamResp, err = resolver.Resolve(dohclient, backupclient, q.Name, q.Qtype)
+				// check whether the record is cached
+				if resp := recCache.Get(q.Name); resp != nil {
+					upstreamResp = resp.(*dns.Msg)
+				} else {
+					upstreamResp, err = resolver.Resolve(dohclient, backupclient, q.Name, q.Qtype)
+					recCache.Add(q.Name, upstreamResp, time.Duration(cfg.CacheTTL)*time.Second)
+				}
 
 				// directly copy what DoH client recv to dns client
 				upstreamResp.SetReply(m)
@@ -114,8 +125,9 @@ func main() {
 func init() {
 	flag.IntVar(&cfg.Port, "port", 53, "port for listening DNS request")
 	flag.StringVar(&cfg.ProxyUrl, "proxy", "", "set proxy for passing DoH traffic")
-	flag.StringVar(&cfg.UpStreamDoH, "doh", "https://cloudflare-dns.com/dns-query", "set DoH url")
+	flag.StringVar(&cfg.UpStreamDoH, "doh", "https://1.1.1.1/dns-query", "set DoH url")
 	flag.StringVar(&cfg.UpStreamTcp, "tcp", "8.8.8.8:853", "set tcp dns address, must be addr:port")
+	flag.IntVar(&cfg.CacheTTL, "ttl", 50, "set cache ttl, in seconds")
 
 	flag.Parse()
 }
