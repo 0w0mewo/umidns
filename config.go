@@ -12,7 +12,7 @@ type Config struct {
 	Port        int
 	UpStreamDoH string
 	UpStreamTcp string
-	CacheTTL    int
+	CacheTTL    int64
 	Debug       bool
 }
 

@@ -24,6 +24,13 @@ func NewMemCache() *MemStore {
 }
 
 func (c *MemStore) Add(key string, value interface{}, timeout time.Duration) {
+	if _, exist := c.mapper.Load(key); exist {
+		return
+	}
+
+	if timeout <= 0 {
+		log.Warnf("cache %s with TTL <= 0", timeout)
+	}
 	expireTime := time.Now().Add(timeout).Unix()
 
 	c.mapper.Store(key, &item{Value: value,

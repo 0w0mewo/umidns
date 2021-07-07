@@ -24,5 +24,9 @@ func Resolve(primary Resolver, secondary Resolver, fqdn string, dnsType uint16) 
 		}
 	}
 
+	for _, r := range resp.Answer {
+		log.Debugf("resolved: %s", r.String())
+	}
+
 	return resp, nil
 }

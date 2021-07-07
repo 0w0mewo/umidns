@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+const DefaultTimeout = 30
+
 type item struct {
 	Value    interface{} `json:"value"`
 	Lifetime int64       `json:"lifetime"`

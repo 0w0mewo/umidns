@@ -20,12 +20,6 @@ var cfg *Config
 
 func main() {
 
-	// new dns server
-	server := &dns.Server{
-		Addr: ":" + strconv.Itoa(cfg.Port),
-		Net:  "udp",
-	}
-
 	// new upstream resolver
 	dohclient, backupclient := resolver.NewDoHClient(&http.Client{
 		Transport: &http.Transport{
@@ -37,7 +31,7 @@ func main() {
 	recCache := cache.NewMemCache()
 
 	// register dns server handler
-	server.Handler = dns.HandlerFunc(func(rw dns.ResponseWriter, m *dns.Msg) {
+	queryHandler := dns.HandlerFunc(func(rw dns.ResponseWriter, m *dns.Msg) {
 		var upstreamResp *dns.Msg
 		var err error
 		var rcode int // RCODE that should reply to client
@@ -70,12 +64,17 @@ func main() {
 					// domain exist
 					case len(upstreamResp.Answer) > 0:
 						if cfg.CacheTTL <= 0 {
-							ttl = int(upstreamResp.Answer[0].Header().Ttl)
+							ttl = int64(upstreamResp.Answer[0].Header().Ttl)
 						}
 
 					// domain not exist or other errors
 					case rcode > 0:
-						ttl = 30
+						ttl = cache.DefaultTimeout
+
+					default:
+						if cfg.CacheTTL <= 0 {
+							ttl = cache.DefaultTimeout
+						}
 
 					}
 
@@ -104,19 +103,27 @@ func main() {
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, syscall.SIGINT, syscall.SIGTERM)
 
+	// register running server instances
+
 	// start and run dns server
+	server := &dns.Server{
+		Addr:      ":" + strconv.Itoa(cfg.Port),
+		Net:       "udp",
+		ReusePort: false,
+		Handler:   queryHandler,
+	}
 	go func() {
-		log.Infoln("server running on " + server.Addr)
+		log.Infof("server running on %s", server.Addr)
 		if err := server.ListenAndServe(); err != nil {
 			log.Fatalln(err)
 		}
+
 	}()
 
 	// wait for shutdown
 	<-shutdown
 	server.Shutdown()
 	log.Infoln("server shutdown")
-
 }
 
 func init() {
@@ -127,7 +134,7 @@ func init() {
 	flag.StringVar(&cfg.UpStreamDoH, "doh", "https://1.1.1.1/dns-query", "set DoH url")
 	flag.StringVar(&cfg.UpStreamTcp, "tcp", "8.8.8.8:853", "set tcp dns address, must be addr:port")
 	flag.BoolVar(&cfg.Debug, "dbg", false, "turn on debug log")
-	flag.IntVar(&cfg.CacheTTL, "ttl", 0, "set ttl of cache record, in seconds, 0 to set automatically")
+	flag.Int64Var(&cfg.CacheTTL, "ttl", 0, "set ttl of cache record, in seconds, 0 to set automatically")
 	flag.Parse()
 
 	if cfg.Debug {
